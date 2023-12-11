@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>Text-to-Speech Converter (Hindi)</title>
+  <style>
+    /* Simple styling for the webpage */
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+    }
+    textarea {
+      width: 80%;
+      height: 100px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>टेक्स्ट से वाणी में परिवर्तित करें (Text-to-Speech Converter)</h1>
+  <textarea id="textToSpeak" placeholder="टेक्स्ट दर्ज करें"></textarea>
+  <button onclick="speak()">बोलें (Speak)</button>
+  <a id="downloadLink" style="display: none;" download="speech.wav">ऑडियो सेव करें (Save Audio)</a>
+
+  <script>
+    let chunks = [];
+    let mediaRecorder;
+
+    function speak() {
+      const text = document.getElementById('textToSpeak').value;
+      const speech = new SpeechSynthesisUtterance();
+      speech.text = text;
+
+      // Set language to Hindi (India)
+      speech.lang = 'hi-IN'; // Language code for Hindi (India)
+
+      // Speak the text
+      speechSynthesis.speak(speech);
+
+      // Start recording audio
+      mediaRecorder = new MediaRecorder(new MediaStream());
+      chunks = [];
+      mediaRecorder.ondataavailable = function (e) {
+        chunks.push(e.data);
+      };
+      mediaRecorder.start();
+    }
+
+    function saveAudio() {
+      if (chunks.length > 0) {
+        const blob = new Blob(chunks, { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        const a = document.getElementById('downloadLink');
+        a.href = url;
+        a.style.display = 'block';
+      } else {
+        console.error('No audio available to save.');
+      }
+      // Stop recording
+      mediaRecorder.stop();
+    }
+  </script>
+</body>
+</html>
+
+
+
