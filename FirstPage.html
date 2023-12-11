@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Text-to-Speech Converter (Hindi)</title>
+  <title>Text-to-Speech Converter</title>
   <style>
     /* Simple styling for the webpage */
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Noto Sans', Arial, sans-serif;
       text-align: center;
       margin-top: 50px;
     }
@@ -20,49 +20,68 @@
       font-size: 16px;
     }
   </style>
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 </head>
 <body>
-  <h1>टेक्स्ट से वाणी में परिवर्तित करें (Text-to-Speech Converter)</h1>
-  <textarea id="textToSpeak" placeholder="टेक्स्ट दर्ज करें"></textarea>
-  <button onclick="speak()">बोलें (Speak)</button>
-  <a id="downloadLink" style="display: none;" download="speech.wav">ऑडियो सेव करें (Save Audio)</a>
+  <h1 id="pageTitle">Text-to-Speech Converter</h1>
+  
+  <label for="textToSpeak" id="textLabel">Text:</label>
+  <textarea id="textToSpeak" placeholder="Enter text"></textarea>
+  
+  <label for="languageSelect">Language:</label>
+  <select id="languageSelect">
+    <option value="en-IN">English (India)</option>
+    <option value="hi-IN">हिन्दी (Hindi)</option>
+    <option value="bn-IN">বাংলা (Bengali)</option>
+  </select>
+
+  <button onclick="speak()" id="speakButton">Speak</button>
+  <a id="downloadLink" style="display: none;" download="speech.wav">Save Audio</a>
 
   <script>
-    let chunks = [];
-    let mediaRecorder;
-
     function speak() {
-      const text = document.getElementById('textToSpeak').value;
-      const speech = new SpeechSynthesisUtterance();
-      speech.text = text;
+      const text = $('#textToSpeak').val();
+      const language = $('#languageSelect').val();
+      const apiKey = 'YOUR_GOOGLE_CLOUD_API_KEY';
 
-      // Set language to Hindi (India)
-      speech.lang = 'hi-IN'; // Language code for Hindi (India)
-
-      // Speak the text
-      speechSynthesis.speak(speech);
-
-      // Start recording audio
-      mediaRecorder = new MediaRecorder(new MediaStream());
-      chunks = [];
-      mediaRecorder.ondataavailable = function (e) {
-        chunks.push(e.data);
-      };
-      mediaRecorder.start();
+      $.ajax({
+        method: 'POST',
+        url: `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+        contentType: 'application/json',
+        data: JSON.stringify({
+          input: { text },
+          voice: { languageCode: language, name: 'en-IN-Wavenet-D' },
+          audioConfig: { audioEncoding: 'LINEAR16' }
+        }),
+        success: function (response) {
+          playAudio(response.audioContent);
+        },
+        error: function (error) {
+          console.error('Error:', error);
+        }
+      });
     }
 
-    function saveAudio() {
-      if (chunks.length > 0) {
-        const blob = new Blob(chunks, { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
-        const a = document.getElementById('downloadLink');
-        a.href = url;
-        a.style.display = 'block';
-      } else {
-        console.error('No audio available to save.');
+    function playAudio(audioContent) {
+      const blob = b64toBlob(audioContent, 'audio/wav');
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+    }
+
+    function b64toBlob(base64, mimeType) {
+      const byteCharacters = atob(base64);
+      const byteArrays = [];
+      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
       }
-      // Stop recording
-      mediaRecorder.stop();
+      return new Blob(byteArrays, { type: mimeType });
     }
   </script>
 </body>
