@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 15px 0px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .input-container {
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            width: 70%;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        .button-container {
+            margin-bottom: 20px;
+        }
+
+        .record-button {
+            padding: 10px 20px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+
+        .record-button:hover {
+            background-color: #45a049;
+        }
+
+        .analyze-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #008CBA;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+
+        .analyze-button:hover {
+            background-color: #007095;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice Analysis</h1>
+        <div class="input-container">
+            <label for="text">Enter Text:</label>
+            <input type="text" id="text" placeholder="Enter text...">
+        </div>
+        <div class="button-container">
+            <button class="record-button" onclick="startRecording()">Start Recording</button>
+            <button class="record-button" onclick="stopRecording()">Stop Recording</button>
+        </div>
+        <audio controls id="audio"></audio>
+        <button class="analyze-button" onclick="analyze()">Analyze</button>
+    </div>
+
+    <script>
+        let recorder;
+        let recordedChunks = [];
+
+        gapi.load('client', () => {
+            gapi.client.init({
+                apiKey: 'YOUR_API_KEY',
+                discoveryDocs: ['https://speech.googleapis.com/$discovery/rest?version=v1'],
+                projectId: 'YOUR_PROJECT_ID'
+            });
+        });
+
+        function startRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    recorder = new MediaRecorder(stream);
+                    recorder.ondataavailable = event => {
+                        recordedChunks.push(event.data);
+                    };
+                    recorder.onstop = () => {
+                        const audio = document.getElementById('audio');
+                        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                        const url = URL.createObjectURL(blob);
+                        audio.src = url;
+                    };
+                    recorder.start();
+                })
+                .catch(err => console.error('Recording error: ', err));
+        }
+
+        function stopRecording() {
+            recorder.stop();
+        }
+
+        function analyze() {
+            const text = document.getElementById('text').value;
+
+            // Process the recorded audio using Google Cloud Speech-to-Text
+            const audio = document.getElementById('audio');
+            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const audioData = event.target.result.split(',')[1];
+                const audioBytes = new Uint8Array(atob(audioData).split('').map(char => char.charCodeAt(0)));
+
+                gapi.client.speech.speech.recognize({
+                    config: {
+                        encoding: 'LINEAR16',
+                        sampleRateHertz: 44100,
+                        languageCode: 'en-US'
+                    },
+                    audio: {
+                        content: audioBytes.toString()
+                    }
+                }).then(response => {
+                    const transcribedText = response.result.results[0].alternatives[0].transcript;
+
+                    // Compare the transcribed text with the entered text
+                    if (transcribedText.toLowerCase() === text.toLowerCase()) {
+                        // Generate speech from entered text using Google Cloud Text-to-Speech
+                        gapi.client.texttospeech.text.synthesizeSpeech({
+                            input: {
+                                text: text
+                            },
+                            voice: {
+                                languageCode: 'en-US', // Change to the desired language code
+                                name: 'en-US-Wavenet-D', // Change to the desired voice name
+                                ssmlGender: 'FEMALE' // Change to the desired gender
+                            },
+                            audioConfig: {
+                                audioEncoding: 'MP3' // Change to desired audio format
+                            }
+                        }).then(speechResponse => {
+                            // Handle the generated speech (audio)
+                            const audioContent = speechResponse.result.audioContent;
+                            const audioBlob = new Blob([audioContent], { type: 'audio/mp3' });
+                            const audioUrl = URL.createObjectURL(audioBlob);
+
+                            // Play the generated speech audio
+                            const audioElement = document.createElement('audio');
+                            audioElement.src = audioUrl;
+                            audioElement.controls = true;
+                            document.body.appendChild(audioElement);
+                            audioElement.play();
+                        }).catch(err => console.error('Text-to-speech error: ', err));
+                    } else {
+                        alert('Text does not match the voice.');
+                    }
+                }).catch(err => console.error('Speech recognition error: ', err));
+            };
+
+            reader.readAsDataURL(blob);
+        }
+    </script>
+</body>
+</html>
+
